@@ -1,7 +1,13 @@
 import type { Database, Row } from "./db.ts";
 import { cidrRange, ipKey } from "./ip.ts";
 
-export const SENDER_STATUSES = ["known", "unknown", "ignored", "retired", "investigate"] as const;
+export const SENDER_STATUSES = [
+  "known",
+  "unknown",
+  "ignored",
+  "retired",
+  "investigate",
+] as const;
 export type SenderStatus = (typeof SENDER_STATUSES)[number];
 
 export const IDENTIFIER_TYPES = [
@@ -47,11 +53,18 @@ function normalise(identifier: Identifier): NormalisedIdentifier {
       if (range === null || !value.includes("/")) {
         throw new RegistryError(`Not a CIDR range: ${identifier.value}`);
       }
-      return { type: identifier.type, value, rangeStart: range.start, rangeEnd: range.end };
+      return {
+        type: identifier.type,
+        value,
+        rangeStart: range.start,
+        rangeEnd: range.end,
+      };
     }
     default:
       if (value === "" || /\s/.test(value)) {
-        throw new RegistryError(`Invalid ${identifier.type}: ${identifier.value}`);
+        throw new RegistryError(
+          `Invalid ${identifier.type}: ${identifier.value}`,
+        );
       }
       return { type: identifier.type, value, rangeStart: null, rangeEnd: null };
   }
@@ -73,7 +86,11 @@ export interface AddSenderResult {
 }
 
 /** Creates a sender, or updates an existing one and adds identifiers to it. */
-export function addSender(db: Database, name: string, options: AddSenderOptions): AddSenderResult {
+export function addSender(
+  db: Database,
+  name: string,
+  options: AddSenderOptions,
+): AddSenderResult {
   const trimmed = name.trim();
   if (trimmed === "") {
     throw new RegistryError("A sender needs a name");
@@ -88,7 +105,12 @@ export function addSender(db: Database, name: string, options: AddSenderOptions)
       senderId = db.run(
         `INSERT INTO senders (name, status, notes, created_at, updated_at)
          VALUES (:name, :status, :notes, :now, :now)`,
-        { name: trimmed, status: options.status ?? "known", notes: options.notes ?? null, now },
+        {
+          name: trimmed,
+          status: options.status ?? "known",
+          notes: options.notes ?? null,
+          now,
+        },
       );
     } else {
       senderId = Number(existing["id"]);
@@ -98,7 +120,12 @@ export function addSender(db: Database, name: string, options: AddSenderOptions)
            notes = coalesce(:notes, notes),
            updated_at = :now
          WHERE id = :id`,
-        { id: senderId, status: options.status ?? null, notes: options.notes ?? null, now },
+        {
+          id: senderId,
+          status: options.status ?? null,
+          notes: options.notes ?? null,
+          now,
+        },
       );
     }
     let added = 0;
@@ -132,7 +159,11 @@ export function addSender(db: Database, name: string, options: AddSenderOptions)
  * Removes identifiers from a sender, or the whole sender when no identifiers
  * are given. Returns the number of removed rows.
  */
-export function removeSender(db: Database, name: string, identifiers: Identifier[]): number {
+export function removeSender(
+  db: Database,
+  name: string,
+  identifiers: Identifier[],
+): number {
   const sender = findSender(db, name.trim());
   if (sender === undefined) {
     throw new RegistryError(`No sender named "${name}"`);
@@ -150,11 +181,16 @@ export function removeSender(db: Database, name: string, identifiers: Identifier
         { id, type: identifier.type, value: identifier.value },
       );
       if (before !== undefined) {
-        db.run("DELETE FROM sender_identifiers WHERE id = :id", { id: Number(before["id"]) });
+        db.run("DELETE FROM sender_identifiers WHERE id = :id", {
+          id: Number(before["id"]),
+        });
         removed += 1;
       }
     }
-    db.run("UPDATE senders SET updated_at = :now WHERE id = :id", { id, now: new Date().toISOString() });
+    db.run("UPDATE senders SET updated_at = :now WHERE id = :id", {
+      id,
+      now: new Date().toISOString(),
+    });
     return removed;
   });
 }
@@ -176,7 +212,9 @@ export interface SenderView {
 
 /** Lists the registry. first_seen and last_seen are derived from observations, never stored. */
 export function listSenders(db: Database): SenderView[] {
-  const senders = db.all("SELECT id, name, status, notes FROM senders ORDER BY name COLLATE NOCASE");
+  const senders = db.all(
+    "SELECT id, name, status, notes FROM senders ORDER BY name COLLATE NOCASE",
+  );
   return senders.map((sender) => ({
     name: String(sender["name"]),
     status: String(sender["status"]),
@@ -199,7 +237,8 @@ export function listSenders(db: Database): SenderView[] {
       .map((row) => ({
         type: String(row["identifier_type"]),
         value: String(row["identifier_value"]),
-        firstSeen: row["first_seen"] === null ? null : String(row["first_seen"]),
+        firstSeen:
+          row["first_seen"] === null ? null : String(row["first_seen"]),
         lastSeen: row["last_seen"] === null ? null : String(row["last_seen"]),
         messages: Number(row["messages"]),
       })),

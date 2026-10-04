@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { crc32, deflateRawSync } from "node:zlib";
-import { resolvePaths, type DataPaths } from "../src/paths.ts";
+import { type DataPaths, resolvePaths } from "../src/paths.ts";
 
 interface FixtureRecord {
   ip: string;
@@ -10,7 +10,11 @@ interface FixtureRecord {
 }
 
 /** Synthetic report with the same structure as real Google reports. Example data only. */
-function passingReport(reportId: string, begin: number, records: FixtureRecord[]): string {
+function passingReport(
+  reportId: string,
+  begin: number,
+  records: FixtureRecord[],
+): string {
   const rows = records
     .map(
       (record) => `  <record>
@@ -49,7 +53,14 @@ ${rows}
 const PASSING_REPORTS: [string, number, FixtureRecord[]][] = [
   ["11111111111111111111", 1790640000, [{ ip: "192.0.2.52", count: 1 }]],
   ["12172077135528107070", 1790812800, [{ ip: "192.0.2.55", count: 2 }]],
-  ["13333333333333333333", 1790899200, [{ ip: "192.0.2.52", count: 1 }, { ip: "192.0.2.58", count: 1 }]],
+  [
+    "13333333333333333333",
+    1790899200,
+    [
+      { ip: "192.0.2.52", count: 1 },
+      { ip: "192.0.2.58", count: 1 },
+    ],
+  ],
   ["14444444444444444444", 1790985600, [{ ip: "192.0.2.55", count: 1 }]],
 ];
 
@@ -60,7 +71,11 @@ export function sampleFiles(): string[] {
   if (samples === undefined) {
     const directory = mkdtempSync(join(tmpdir(), "dmarcery-samples-"));
     samples = PASSING_REPORTS.map(([reportId, begin, records]) =>
-      writeFixture(directory, `receiver.example!example.com!${begin}!${begin + 86_399}.xml`, passingReport(reportId, begin, records)),
+      writeFixture(
+        directory,
+        `receiver.example!example.com!${begin}!${begin + 86_399}.xml`,
+        passingReport(reportId, begin, records),
+      ),
     );
   }
   return samples;
@@ -115,7 +130,11 @@ export const SPOOF_REPORT = `<?xml version="1.0" encoding="UTF-8" ?>
 </feedback>
 `;
 
-export function writeFixture(directory: string, name: string, content: string | Buffer): string {
+export function writeFixture(
+  directory: string,
+  name: string,
+  content: string | Buffer,
+): string {
   const path = join(directory, name);
   writeFileSync(path, content);
   return path;

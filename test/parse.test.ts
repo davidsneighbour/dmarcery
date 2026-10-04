@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { cidrRange, ipKey, networkOf } from "../src/ip.ts";
 import { parseReport, ReportError } from "../src/parse.ts";
-import { sampleFiles, SPOOF_REPORT } from "./helpers.ts";
+import { SPOOF_REPORT, sampleFiles } from "./helpers.ts";
 
 describe("ip", () => {
   it("maps IPv4 into the IPv6 key space", () => {
@@ -51,7 +51,10 @@ describe("parseReport", () => {
   it("keeps report IDs as exact strings", () => {
     const file = sampleFiles().find((name) => name.includes("1790812800"));
     assert.ok(file);
-    assert.equal(parseReport(readFileSync(file, "utf8")).reportId, "12172077135528107070");
+    assert.equal(
+      parseReport(readFileSync(file, "utf8")).reportId,
+      "12172077135528107070",
+    );
   });
 
   it("parses namespaces, errors, reasons, and optional fields", () => {
@@ -72,8 +75,20 @@ describe("parseReport", () => {
 
   it("rejects files that are not DMARC aggregate reports", () => {
     assert.throws(() => parseReport("<html><body/></html>"), ReportError);
-    assert.throws(() => parseReport("<feedback><report_metadata/></feedback>"), ReportError);
-    assert.throws(() => parseReport("<feedback><unclosed></feedback>"), ReportError);
-    assert.throws(() => parseReport(SPOOF_REPORT.replace("<count>3</count>", "<count>x</count>")), ReportError);
+    assert.throws(
+      () => parseReport("<feedback><report_metadata/></feedback>"),
+      ReportError,
+    );
+    assert.throws(
+      () => parseReport("<feedback><unclosed></feedback>"),
+      ReportError,
+    );
+    assert.throws(
+      () =>
+        parseReport(
+          SPOOF_REPORT.replace("<count>3</count>", "<count>x</count>"),
+        ),
+      ReportError,
+    );
   });
 });

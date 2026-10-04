@@ -123,7 +123,9 @@ function integer(value: string | null, field: string): number {
 }
 
 function optionalInteger(value: string | null): number | null {
-  return value !== null && /^\d+$/.test(value) ? Number.parseInt(value, 10) : null;
+  return value !== null && /^\d+$/.test(value)
+    ? Number.parseInt(value, 10)
+    : null;
 }
 
 function required(value: string | null, field: string): string {
@@ -174,36 +176,61 @@ function parseRecord(node: Node): DmarcRecord {
 export function parseReport(xml: string): DmarcReport {
   const valid = XMLValidator.validate(xml);
   if (valid !== true) {
-    throw new ReportError(`Not well-formed XML: ${valid.err.msg} (line ${valid.err.line})`);
+    throw new ReportError(
+      `Not well-formed XML: ${valid.err.msg} (line ${valid.err.line})`,
+    );
   }
 
   const document: unknown = parser.parse(xml);
   const feedback = child(document, "feedback");
   if (feedback === undefined) {
-    throw new ReportError("Not a DMARC aggregate report: missing <feedback> root element");
+    throw new ReportError(
+      "Not a DMARC aggregate report: missing <feedback> root element",
+    );
   }
   const metadata = child(feedback, "report_metadata");
   if (metadata === undefined) {
-    throw new ReportError("Not a DMARC aggregate report: missing <report_metadata>");
+    throw new ReportError(
+      "Not a DMARC aggregate report: missing <report_metadata>",
+    );
   }
   const policy = child(feedback, "policy_published");
   if (policy === undefined) {
-    throw new ReportError("Not a DMARC aggregate report: missing <policy_published>");
+    throw new ReportError(
+      "Not a DMARC aggregate report: missing <policy_published>",
+    );
   }
   const dateRange = child(metadata, "date_range");
 
-  const errors = isNode(metadata) && Array.isArray(metadata["error"]) ? metadata["error"] : [];
+  const errors =
+    isNode(metadata) && Array.isArray(metadata["error"])
+      ? metadata["error"]
+      : [];
 
   return {
     version: text(feedback, "version"),
     reporter: required(text(metadata, "org_name"), "report_metadata/org_name"),
-    reportId: required(text(metadata, "report_id"), "report_metadata/report_id"),
+    reportId: required(
+      text(metadata, "report_id"),
+      "report_metadata/report_id",
+    ),
     reportEmail: text(metadata, "email"),
     extraContactInfo: text(metadata, "extra_contact_info"),
-    errors: errors.map((error) => String(error).trim()).filter((error) => error !== ""),
-    periodBegin: integer(text(dateRange, "begin"), "report_metadata/date_range/begin"),
-    periodEnd: integer(text(dateRange, "end"), "report_metadata/date_range/end"),
-    domain: required(text(policy, "domain"), "policy_published/domain").toLowerCase(),
+    errors: errors
+      .map((error) => String(error).trim())
+      .filter((error) => error !== ""),
+    periodBegin: integer(
+      text(dateRange, "begin"),
+      "report_metadata/date_range/begin",
+    ),
+    periodEnd: integer(
+      text(dateRange, "end"),
+      "report_metadata/date_range/end",
+    ),
+    domain: required(
+      text(policy, "domain"),
+      "policy_published/domain",
+    ).toLowerCase(),
     policy: {
       adkim: lower(text(policy, "adkim")),
       aspf: lower(text(policy, "aspf")),

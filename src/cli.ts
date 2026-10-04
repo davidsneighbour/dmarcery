@@ -2,9 +2,21 @@
 import { existsSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { Database } from "./db.ts";
-import { type Column, formatDateTime, formatNumber, pairs, table } from "./format.ts";
-import { readReportSources, type ReportSource } from "./extract.ts";
-import { collectFiles, type Finding, type FindingKind, type ImportResult, importReport } from "./importer.ts";
+import { type ReportSource, readReportSources } from "./extract.ts";
+import {
+  type Column,
+  formatDateTime,
+  formatNumber,
+  pairs,
+  table,
+} from "./format.ts";
+import {
+  collectFiles,
+  type Finding,
+  type FindingKind,
+  type ImportResult,
+  importReport,
+} from "./importer.ts";
 import { ReportError } from "./parse.ts";
 import { type DataPaths, resolvePaths } from "./paths.ts";
 import {
@@ -125,7 +137,10 @@ const { values: options, positionals } = parseArgs({
   },
 });
 
-function positiveInteger(value: string | undefined, name: string): number | undefined {
+function positiveInteger(
+  value: string | undefined,
+  name: string,
+): number | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -162,10 +177,20 @@ function print(text: string): void {
 }
 
 function printJson(value: unknown): void {
-  print(JSON.stringify(value, (_key, item: unknown) => (typeof item === "bigint" ? Number(item) : item), 2));
+  print(
+    JSON.stringify(
+      value,
+      (_key, item: unknown) => (typeof item === "bigint" ? Number(item) : item),
+      2,
+    ),
+  );
 }
 
-function printRows(columns: Column[], rows: Record<string, unknown>[], empty: string): void {
+function printRows(
+  columns: Column[],
+  rows: Record<string, unknown>[],
+  empty: string,
+): void {
   if (options.json) {
     printJson(rows);
   } else if (rows.length === 0) {
@@ -194,10 +219,13 @@ const FINDING_LABELS: Record<FindingKind, string> = {
 };
 
 function renderFindings(findings: Finding[]): string[] {
-  const width = Math.max(...Object.values(FINDING_LABELS).map((label) => label.length)) + 2;
+  const width =
+    Math.max(...Object.values(FINDING_LABELS).map((label) => label.length)) + 2;
   const lines: string[] = [];
   for (const finding of findings) {
-    lines.push(`${`${FINDING_LABELS[finding.kind]}:`.padEnd(width)}${finding.value}`);
+    lines.push(
+      `${`${FINDING_LABELS[finding.kind]}:`.padEnd(width)}${finding.value}`,
+    );
     if (finding.detail !== undefined) {
       for (const line of finding.detail.split("\n")) {
         lines.push(`${" ".repeat(width)}${line}`);
@@ -215,16 +243,24 @@ function renderImport(result: ImportResult, paths: DataPaths): string {
   }
 
   if (options.verbose) {
-    const newSenders = result.findings.filter((finding) => finding.kind === "new_source_ip").length;
+    const newSenders = result.findings.filter(
+      (finding) => finding.kind === "new_source_ip",
+    ).length;
     const lines = [
       "DMARC report imported",
       "",
       pairs([
         ["Reporter", report.reporter],
         ["Domain", report.domain],
-        ["Period", `${formatDateTime(report.periodBegin)} — ${formatDateTime(report.periodEnd)} UTC`],
+        [
+          "Period",
+          `${formatDateTime(report.periodBegin)} — ${formatDateTime(report.periodEnd)} UTC`,
+        ],
         ["Report ID", report.reportId],
-        ["Policy", `p=${report.policy.p ?? "?"} sp=${report.policy.sp ?? "-"} pct=${report.policy.pct ?? "-"}`],
+        [
+          "Policy",
+          `p=${report.policy.p ?? "?"} sp=${report.policy.sp ?? "-"} pct=${report.policy.pct ?? "-"}`,
+        ],
       ]),
       "",
       pairs([
@@ -238,7 +274,13 @@ function renderImport(result: ImportResult, paths: DataPaths): string {
     if (result.findings.length > 0) {
       lines.push("", ...renderFindings(result.findings));
     }
-    lines.push("", pairs([["Archive", result.archivePath ?? "-"], ["Database", paths.database]]));
+    lines.push(
+      "",
+      pairs([
+        ["Archive", result.archivePath ?? "-"],
+        ["Database", paths.database],
+      ]),
+    );
     return lines.join("\n");
   }
 
@@ -263,7 +305,11 @@ function renderImport(result: ImportResult, paths: DataPaths): string {
   return lines.join("\n");
 }
 
-function commandImport(db: Database, paths: DataPaths, inputs: string[]): number {
+function commandImport(
+  db: Database,
+  paths: DataPaths,
+  inputs: string[],
+): number {
   if (inputs.length === 0) {
     throw new UsageError("import needs at least one file or directory");
   }
@@ -280,7 +326,10 @@ function commandImport(db: Database, paths: DataPaths, inputs: string[]): number
   const failures: { file: string; error: string }[] = [];
   let previousMultiline = false;
   const fail = (name: string, error: unknown): void => {
-    if (!(error instanceof ReportError) && !(error instanceof Error && "code" in error)) {
+    if (
+      !(error instanceof ReportError) &&
+      !(error instanceof Error && "code" in error)
+    ) {
       throw error;
     }
     failures.push({ file: name, error: error.message });
@@ -300,13 +349,18 @@ function commandImport(db: Database, paths: DataPaths, inputs: string[]): number
     // Each report in a zip file is imported on its own, so one bad member does not block the others.
     for (const source of sources) {
       try {
-        const result = importReport(db, source, { archiveDir: paths.archive, dataDir: paths.dataDir });
+        const result = importReport(db, source, {
+          archiveDir: paths.archive,
+          dataDir: paths.dataDir,
+        });
         results.push(result);
         if (options.json) {
           continue;
         }
         if (result.status === "conflict") {
-          process.stderr.write(`Conflict: ${source.name}: ${result.message ?? ""} — not imported\n`);
+          process.stderr.write(
+            `Conflict: ${source.name}: ${result.message ?? ""} — not imported\n`,
+          );
         } else {
           // Separate multi-line blocks with a blank line; keep one-line results compact.
           const text = renderImport(result, paths);
@@ -340,13 +394,24 @@ function commandImport(db: Database, paths: DataPaths, inputs: string[]): number
       failures,
     });
   } else if (results.length + failures.length > 1) {
-    const count = (status: ImportResult["status"]): number => results.filter((result) => result.status === status).length;
-    const parts = [`${formatNumber(count("imported"))} imported`, `${formatNumber(count("duplicate"))} already imported`];
-    if (count("conflict") > 0) parts.push(`${formatNumber(count("conflict"))} conflicting`);
-    if (failures.length > 0) parts.push(`${formatNumber(failures.length)} not imported`);
-    print(`\n${plural(results.length + failures.length, "report")} in ${plural(files.length, "file")}: ${parts.join(", ")}`);
+    const count = (status: ImportResult["status"]): number =>
+      results.filter((result) => result.status === status).length;
+    const parts = [
+      `${formatNumber(count("imported"))} imported`,
+      `${formatNumber(count("duplicate"))} already imported`,
+    ];
+    if (count("conflict") > 0)
+      parts.push(`${formatNumber(count("conflict"))} conflicting`);
+    if (failures.length > 0)
+      parts.push(`${formatNumber(failures.length)} not imported`);
+    print(
+      `\n${plural(results.length + failures.length, "report")} in ${plural(files.length, "file")}: ${parts.join(", ")}`,
+    );
   }
-  return failures.length > 0 || results.some((result) => result.status === "conflict") ? 1 : 0;
+  return failures.length > 0 ||
+    results.some((result) => result.status === "conflict")
+    ? 1
+    : 0;
 }
 
 // --- inspection ---------------------------------------------------------
@@ -368,7 +433,12 @@ function commandSummary(db: Database, paths: DataPaths): void {
         ["Domains", formatNumber(data.domains)],
         ["Reporters", formatNumber(data.reporters)],
         ["Known senders", formatNumber(data.knownSenders)],
-        ["Period", data.firstDate === null ? "-" : `${data.firstDate} — ${data.lastDate ?? "?"}`],
+        [
+          "Period",
+          data.firstDate === null
+            ? "-"
+            : `${data.firstDate} — ${data.lastDate ?? "?"}`,
+        ],
       ]),
       "",
       `Last ${days} days`,
@@ -387,7 +457,11 @@ function commandSummary(db: Database, paths: DataPaths): void {
 
 function commandReports(db: Database): void {
   const limit = positiveInteger(options.limit, "limit");
-  const rows = listReports(db, filterFromOptions(), limit ?? (options.days === undefined ? 50 : undefined));
+  const rows = listReports(
+    db,
+    filterFromOptions(),
+    limit ?? (options.days === undefined ? 50 : undefined),
+  );
   printRows(
     [
       { header: "DATE", key: "date" },
@@ -416,7 +490,11 @@ function commandFailures(db: Database): void {
       { header: "DKIM", key: "dkim_evaluation" },
       { header: "SPF", key: "spf_evaluation" },
       { header: "DISPOSITION", key: "disposition" },
-      { header: "AUTH RESULTS", key: "dkim_auth", format: (value) => (value === null ? "no DKIM" : String(value)) },
+      {
+        header: "AUTH RESULTS",
+        key: "dkim_auth",
+        format: (value) => (value === null ? "no DKIM" : String(value)),
+      },
     ],
     listFailures(db, filterFromOptions()),
     "No DMARC failures.",
@@ -440,9 +518,13 @@ function commandUnknown(db: Database): void {
     rows,
     "No unknown senders.",
   );
-  const registered = Number(db.get("SELECT count(*) AS n FROM senders")?.["n"] ?? 0);
+  const registered = Number(
+    db.get("SELECT count(*) AS n FROM senders")?.["n"] ?? 0,
+  );
   if (!options.json && registered === 0 && rows.length > 0) {
-    print("\nThe sender registry is empty, so every sender is unknown. Add senders with: dmarc sender add");
+    print(
+      "\nThe sender registry is empty, so every sender is unknown. Add senders with: dmarc sender add",
+    );
   }
 }
 
@@ -508,7 +590,10 @@ function renderCounted(title: string, entries: Counted[]): string[] {
   return [
     "",
     `${title}:`,
-    ...entries.map((entry) => `  ${entry.value.padEnd(width)}   ${plural(entry.messages, "message")}`),
+    ...entries.map(
+      (entry) =>
+        `  ${entry.value.padEnd(width)}   ${plural(entry.messages, "message")}`,
+    ),
   ];
 }
 
@@ -535,7 +620,8 @@ function commandInspect(db: Database, query: string): number {
     `  ${formatNumber(data.pass)} pass`,
     `  ${formatNumber(data.fail)} fail`,
   ];
-  if (data.kind !== "ip") lines.push(...renderCounted("Source IPs", data.sourceIps));
+  if (data.kind !== "ip")
+    lines.push(...renderCounted("Source IPs", data.sourceIps));
   lines.push(
     ...renderCounted("Header-from", data.headerFrom),
     ...renderCounted("DKIM", data.dkim),
@@ -559,7 +645,9 @@ function commandInspect(db: Database, query: string): number {
 function commandSender(db: Database, args: string[]): number {
   const [action, ...rest] = args;
   if (action === undefined) {
-    throw new UsageError("sender needs an IP address, CIDR range, domain, or one of: add, list, remove");
+    throw new UsageError(
+      "sender needs an IP address, CIDR range, domain, or one of: add, list, remove",
+    );
   }
 
   if (action === "list") {
@@ -567,10 +655,14 @@ function commandSender(db: Database, args: string[]): number {
     if (options.json) {
       printJson(senders);
     } else if (senders.length === 0) {
-      print("The sender registry is empty. Add senders with: dmarc sender add <name> --dkim-domain ...");
+      print(
+        "The sender registry is empty. Add senders with: dmarc sender add <name> --dkim-domain ...",
+      );
     } else {
       const blocks = senders.map((sender) => {
-        const lines = [`${sender.name} (${sender.status})${sender.notes === null ? "" : ` — ${sender.notes}`}`];
+        const lines = [
+          `${sender.name} (${sender.status})${sender.notes === null ? "" : ` — ${sender.notes}`}`,
+        ];
         if (sender.identifiers.length === 0) {
           lines.push("  no identifiers");
         } else {
@@ -583,7 +675,10 @@ function commandSender(db: Database, args: string[]): number {
                 { header: "LAST SEEN", key: "lastSeen" },
                 { header: "MESSAGES", key: "messages", align: "right" },
               ],
-              sender.identifiers.map((identifier) => ({ ...identifier, type: `  ${identifier.type}` })),
+              sender.identifiers.map((identifier) => ({
+                ...identifier,
+                type: `  ${identifier.type}`,
+              })),
             ),
           );
         }
@@ -602,23 +697,35 @@ function commandSender(db: Database, args: string[]): number {
     const identifiers = identifiersFromOptions();
     if (action === "remove") {
       const removed = removeSender(db, name, identifiers);
-      print(identifiers.length === 0 ? `Removed sender ${name}` : `Removed ${plural(removed, "identifier")} from ${name}`);
+      print(
+        identifiers.length === 0
+          ? `Removed sender ${name}`
+          : `Removed ${plural(removed, "identifier")} from ${name}`,
+      );
       return 0;
     }
     if (options.status !== undefined && !isSenderStatus(options.status)) {
-      throw new UsageError(`--status must be one of: ${SENDER_STATUSES.join(", ")}`);
+      throw new UsageError(
+        `--status must be one of: ${SENDER_STATUSES.join(", ")}`,
+      );
     }
     const result = addSender(db, name, {
-      ...(options.status !== undefined && isSenderStatus(options.status) ? { status: options.status } : {}),
+      ...(options.status !== undefined && isSenderStatus(options.status)
+        ? { status: options.status }
+        : {}),
       ...(options.notes !== undefined ? { notes: options.notes } : {}),
       identifiers,
     });
-    print(`${result.created ? "Added" : "Updated"} sender ${name} (${plural(result.added, "new identifier")})`);
+    print(
+      `${result.created ? "Added" : "Updated"} sender ${name} (${plural(result.added, "new identifier")})`,
+    );
     return 0;
   }
 
   if (rest.length > 0) {
-    throw new UsageError("sender inspection takes one IP address, CIDR range, or domain");
+    throw new UsageError(
+      "sender inspection takes one IP address, CIDR range, or domain",
+    );
   }
   return commandInspect(db, action);
 }
@@ -626,7 +733,9 @@ function commandSender(db: Database, args: string[]): number {
 // --- main ---------------------------------------------------------------
 
 function version(): string {
-  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string };
+  const manifest = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version?: string };
   return manifest.version ?? "unknown";
 }
 
@@ -668,7 +777,9 @@ function main(): number {
             ["Database", paths.database],
             ["Backup", result.backup ?? "-"],
           ]),
-          ...result.failed.map((failure) => `Failed: ${failure.file}: ${failure.error}`),
+          ...result.failed.map(
+            (failure) => `Failed: ${failure.file}: ${failure.error}`,
+          ),
         ].join("\n"),
       );
     }
@@ -714,7 +825,11 @@ function main(): number {
 try {
   process.exitCode = main();
 } catch (error) {
-  if (error instanceof UsageError || error instanceof RegistryError || error instanceof ReportError) {
+  if (
+    error instanceof UsageError ||
+    error instanceof RegistryError ||
+    error instanceof ReportError
+  ) {
     process.stderr.write(`dmarc: ${error.message}\n`);
     process.exitCode = 2;
   } else {

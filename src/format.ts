@@ -5,7 +5,10 @@ export function formatNumber(value: number): string {
 }
 
 export function formatDateTime(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toISOString().slice(0, 16).replace("T", " ");
+  return new Date(unixSeconds * 1000)
+    .toISOString()
+    .slice(0, 16)
+    .replace("T", " ");
 }
 
 export interface Column {
@@ -27,10 +30,18 @@ function display(value: unknown): string {
 }
 
 /** Renders rows as an aligned plain-text table. The last column is never padded. */
-export function table(columns: Column[], rows: Record<string, unknown>[]): string {
-  const cells = rows.map((row) => columns.map((column) => (column.format ?? display)(row[column.key])));
+export function table(
+  columns: Column[],
+  rows: Record<string, unknown>[],
+): string {
+  const cells = rows.map((row) =>
+    columns.map((column) => (column.format ?? display)(row[column.key])),
+  );
   const widths = columns.map((column, index) =>
-    Math.max(column.header.length, ...cells.map((line) => line[index]?.length ?? 0)),
+    Math.max(
+      column.header.length,
+      ...cells.map((line) => line[index]?.length ?? 0),
+    ),
   );
   const render = (line: string[]): string =>
     line
@@ -44,11 +55,16 @@ export function table(columns: Column[], rows: Record<string, unknown>[]): strin
       })
       .join("   ")
       .trimEnd();
-  return [render(columns.map((column) => column.header)), ...cells.map(render)].join("\n");
+  return [
+    render(columns.map((column) => column.header)),
+    ...cells.map(render),
+  ].join("\n");
 }
 
 /** Renders label/value pairs with aligned values. */
 export function pairs(entries: [string, string][]): string {
   const width = Math.max(...entries.map(([label]) => label.length)) + 1;
-  return entries.map(([label, value]) => `${`${label}:`.padEnd(width + 1)}${value}`).join("\n");
+  return entries
+    .map(([label, value]) => `${`${label}:`.padEnd(width + 1)}${value}`)
+    .join("\n");
 }

@@ -18,13 +18,15 @@ function archiveFiles(directory: string): string[] {
     return [];
   }
   return readdirSync(directory, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".xml"))
+    .filter(
+      (entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".xml"),
+    )
     .map((entry) => join(entry.parentPath, entry.name))
     .sort();
 }
 
 /**
- * Creates a fresh database from the XML archive (PLAN.md rule 7).
+ * Creates a fresh database from the XML archive (README.md, database rule 7).
  * Configured data (the sender registry) is not in the archive, so it is copied
  * from the current database. The previous database is kept as dmarc.sqlite.bak.
  */
@@ -32,14 +34,28 @@ export function rebuild(paths: DataPaths): RebuildResult {
   const target = `${paths.database}.rebuild`;
   rmSync(target, { force: true });
   const fresh = new Database(target);
-  const result: RebuildResult = { files: 0, imported: 0, duplicates: 0, failed: [], senders: 0, backup: null };
+  const result: RebuildResult = {
+    files: 0,
+    imported: 0,
+    duplicates: 0,
+    failed: [],
+    senders: 0,
+    backup: null,
+  };
 
   try {
-    const old = existsSync(paths.database) ? new Database(paths.database) : null;
-    const previousImports = new Map<string, { sourceFile: string; importedAt: string }>();
+    const old = existsSync(paths.database)
+      ? new Database(paths.database)
+      : null;
+    const previousImports = new Map<
+      string,
+      { sourceFile: string; importedAt: string }
+    >();
     if (old !== null) {
       fresh.transaction(() => {
-        for (const row of old.all("SELECT id, name, status, notes, created_at, updated_at FROM senders")) {
+        for (const row of old.all(
+          "SELECT id, name, status, notes, created_at, updated_at FROM senders",
+        )) {
           fresh.run(
             `INSERT INTO senders (id, name, status, notes, created_at, updated_at)
              VALUES (:id, :name, :status, :notes, :created_at, :updated_at)`,
@@ -57,7 +73,9 @@ export function rebuild(paths: DataPaths): RebuildResult {
           );
         }
       });
-      for (const row of old.all("SELECT source_sha256, source_file, imported_at FROM reports")) {
+      for (const row of old.all(
+        "SELECT source_sha256, source_file, imported_at FROM reports",
+      )) {
         previousImports.set(String(row["source_sha256"]), {
           sourceFile: String(row["source_file"]),
           importedAt: String(row["imported_at"]),
@@ -83,18 +101,24 @@ export function rebuild(paths: DataPaths): RebuildResult {
           }
         }
       } catch (error) {
-        result.failed.push({ file, error: error instanceof Error ? error.message : String(error) });
+        result.failed.push({
+          file,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
     // Keep the original file names and import times where the previous database knew them.
     fresh.transaction(() => {
       for (const [sha, previous] of previousImports) {
-        fresh.run("UPDATE reports SET source_file = :file, imported_at = :at WHERE source_sha256 = :sha", {
-          file: previous.sourceFile,
-          at: previous.importedAt,
-          sha,
-        });
+        fresh.run(
+          "UPDATE reports SET source_file = :file, imported_at = :at WHERE source_sha256 = :sha",
+          {
+            file: previous.sourceFile,
+            at: previous.importedAt,
+            sha,
+          },
+        );
       }
     });
   } catch (error) {

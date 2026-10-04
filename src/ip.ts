@@ -27,9 +27,17 @@ function ipv6ToHex(ip: string): string {
   const [head = "", rest] = address.split("::");
   const headGroups = head === "" ? [] : head.split(":");
   const restGroups = rest === undefined || rest === "" ? [] : rest.split(":");
-  const missing = rest === undefined ? 0 : 8 - headGroups.length - restGroups.length;
-  const groups = [...headGroups, ...Array<string>(missing).fill("0"), ...restGroups];
-  return groups.map((group) => group.padStart(4, "0")).join("").toLowerCase();
+  const missing =
+    rest === undefined ? 0 : 8 - headGroups.length - restGroups.length;
+  const groups = [
+    ...headGroups,
+    ...Array<string>(missing).fill("0"),
+    ...restGroups,
+  ];
+  return groups
+    .map((group) => group.padStart(4, "0"))
+    .join("")
+    .toLowerCase();
 }
 
 /** Returns the 32-character hex key of an IP address, or null if it is not an IP address. */

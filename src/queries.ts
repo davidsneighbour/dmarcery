@@ -10,11 +10,17 @@ export interface Filter {
 
 const DAY = 86_400;
 
-export function sinceOf(days: number | undefined, now = Date.now()): number | null {
+export function sinceOf(
+  days: number | undefined,
+  now = Date.now(),
+): number | null {
   return days === undefined ? null : Math.floor(now / 1000) - days * DAY;
 }
 
-function where(filter: Filter, columns: { end: string; domain: string; reporter?: string }): { sql: string; params: Params } {
+function where(
+  filter: Filter,
+  columns: { end: string; domain: string; reporter?: string },
+): { sql: string; params: Params } {
   const clauses: string[] = [];
   const params: Params = {};
   const since = sinceOf(filter.days);
@@ -30,12 +36,17 @@ function where(filter: Filter, columns: { end: string; domain: string; reporter?
     clauses.push(`${columns.reporter} = :reporter COLLATE NOCASE`);
     params["reporter"] = filter.reporter;
   }
-  return { sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", params };
+  return {
+    sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+  };
 }
 
 const num = (value: unknown): number => Number(value ?? 0);
-const messagesText = (count: number): string => `${formatNumber(count)} message${count === 1 ? "" : "s"}`;
-const str = (value: unknown): string | null => (value === null || value === undefined ? null : String(value));
+const messagesText = (count: number): string =>
+  `${formatNumber(count)} message${count === 1 ? "" : "s"}`;
+const str = (value: unknown): string | null =>
+  value === null || value === undefined ? null : String(value);
 
 export interface Summary {
   reports: number;
@@ -46,7 +57,13 @@ export interface Summary {
   firstDate: string | null;
   lastDate: string | null;
   days: number;
-  window: { reports: number; messages: number; pass: number; fail: number; unknownSenders: number };
+  window: {
+    reports: number;
+    messages: number;
+    pass: number;
+    fail: number;
+    unknownSenders: number;
+  };
 }
 
 export function summary(db: Database, days = 30): Summary {
@@ -68,7 +85,10 @@ export function summary(db: Database, days = 30): Summary {
      FROM v_records WHERE period_end >= :since`,
     { since },
   );
-  const unknown = db.get("SELECT count(*) AS n FROM v_unknown_senders WHERE last_seen_ts >= :since", { since });
+  const unknown = db.get(
+    "SELECT count(*) AS n FROM v_unknown_senders WHERE last_seen_ts >= :since",
+    { since },
+  );
   return {
     reports: num(totals?.["reports"]),
     messages: num(totals?.["messages"]),
@@ -88,8 +108,16 @@ export function summary(db: Database, days = 30): Summary {
   };
 }
 
-export function listReports(db: Database, filter: Filter, limit?: number): Row[] {
-  const { sql, params } = where(filter, { end: "rep.period_end", domain: "rep.domain", reporter: "rep.reporter" });
+export function listReports(
+  db: Database,
+  filter: Filter,
+  limit?: number,
+): Row[] {
+  const { sql, params } = where(filter, {
+    end: "rep.period_end",
+    domain: "rep.domain",
+    reporter: "rep.reporter",
+  });
   return db.all(
     `SELECT date(rep.period_begin, 'unixepoch') AS date, rep.reporter, rep.domain, rep.report_id,
             count(r.id) AS records,
@@ -107,7 +135,11 @@ export function listReports(db: Database, filter: Filter, limit?: number): Row[]
 }
 
 export function listFailures(db: Database, filter: Filter): Row[] {
-  const { sql, params } = where(filter, { end: "period_end", domain: "domain", reporter: "reporter" });
+  const { sql, params } = where(filter, {
+    end: "period_end",
+    domain: "domain",
+    reporter: "reporter",
+  });
   return db.all(
     `SELECT report_date, domain, reporter, source_ip, message_count, header_from,
             dkim_evaluation, spf_evaluation, dkim_auth, spf_auth, disposition
@@ -222,8 +254,14 @@ export function inspectSender(db: Database, query: string): SenderInspection {
   const matched = `matched AS (SELECT * FROM v_records v WHERE ${condition})`;
   const counted = (select: string, from = "matched"): Counted[] =>
     db
-      .all(`WITH ${matched} SELECT ${select} AS value, sum(messages) AS messages FROM (${from}) GROUP BY 1 ORDER BY 2 DESC, 1`, params)
-      .map((row) => ({ value: String(row["value"] ?? "?"), messages: num(row["messages"]) }));
+      .all(
+        `WITH ${matched} SELECT ${select} AS value, sum(messages) AS messages FROM (${from}) GROUP BY 1 ORDER BY 2 DESC, 1`,
+        params,
+      )
+      .map((row) => ({
+        value: String(row["value"] ?? "?"),
+        messages: num(row["messages"]),
+      }));
 
   const totals = db.get(
     `WITH ${matched}
@@ -246,8 +284,14 @@ export function inspectSender(db: Database, query: string): SenderInspection {
     fail: num(totals?.["fail"]),
     firstSeen: str(totals?.["first_seen"]),
     lastSeen: str(totals?.["last_seen"]),
-    sourceIps: counted("source_ip", "SELECT source_ip, message_count AS messages FROM matched"),
-    headerFrom: counted("header_from", "SELECT header_from, message_count AS messages FROM matched"),
+    sourceIps: counted(
+      "source_ip",
+      "SELECT source_ip, message_count AS messages FROM matched",
+    ),
+    headerFrom: counted(
+      "header_from",
+      "SELECT header_from, message_count AS messages FROM matched",
+    ),
     dkim: counted(
       "entry",
       `SELECT coalesce(d.domain, '?') || coalesce(' (selector ' || d.selector || ')', '') || ': ' || coalesce(d.result, '?') AS entry,
@@ -260,9 +304,18 @@ export function inspectSender(db: Database, query: string): SenderInspection {
               m.message_count AS messages
        FROM matched m JOIN spf_results s ON s.record_id = m.record_id`,
     ),
-    reporters: counted("reporter", "SELECT reporter, message_count AS messages FROM matched"),
-    policyDomains: counted("domain", "SELECT domain, message_count AS messages FROM matched"),
-    dispositions: counted("disposition", "SELECT disposition, message_count AS messages FROM matched"),
+    reporters: counted(
+      "reporter",
+      "SELECT reporter, message_count AS messages FROM matched",
+    ),
+    policyDomains: counted(
+      "domain",
+      "SELECT domain, message_count AS messages FROM matched",
+    ),
+    dispositions: counted(
+      "disposition",
+      "SELECT disposition, message_count AS messages FROM matched",
+    ),
     registry: counted(
       "sender",
       `SELECT s.name || ' (' || s.status || ', matched by ' || (
@@ -312,10 +365,17 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
     ORDER BY 2, 1`;
 
   firstSeen("new source IP", newSql("r.source_ip", "records r"));
-  firstSeen("new header-from", newSql("r.header_from", "records r", "WHERE r.header_from IS NOT NULL"));
+  firstSeen(
+    "new header-from",
+    newSql("r.header_from", "records r", "WHERE r.header_from IS NOT NULL"),
+  );
   firstSeen(
     "new DKIM domain",
-    newSql("d.domain", "dkim_results d JOIN records r ON r.id = d.record_id", "WHERE d.domain IS NOT NULL"),
+    newSql(
+      "d.domain",
+      "dkim_results d JOIN records r ON r.id = d.record_id",
+      "WHERE d.domain IS NOT NULL",
+    ),
   );
   firstSeen(
     "new DKIM selector",
@@ -327,7 +387,11 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
   );
   firstSeen(
     "new SPF domain",
-    newSql("s.domain", "spf_results s JOIN records r ON r.id = s.record_id", "WHERE s.domain IS NOT NULL"),
+    newSql(
+      "s.domain",
+      "spf_results s JOIN records r ON r.id = s.record_id",
+      "WHERE s.domain IS NOT NULL",
+    ),
   );
 
   // New source networks (/24 IPv4, /48 IPv6), computed from per-IP first sightings.
@@ -347,7 +411,9 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
       messages: (current?.messages ?? 0) + num(row["messages"]),
     });
   }
-  for (const [network, { first, messages }] of [...networks].sort((a, b) => a[1].first - b[1].first)) {
+  for (const [network, { first, messages }] of [...networks].sort(
+    (a, b) => a[1].first - b[1].first,
+  )) {
     if (first >= since) {
       results.push({
         signal: "new source network",
@@ -372,7 +438,8 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
      GROUP BY rep.domain ORDER BY rep.domain`,
     { since, before },
   );
-  const percent = (part: number, whole: number): string => (whole === 0 ? "0%" : `${((100 * part) / whole).toFixed(1)}%`);
+  const percent = (part: number, whole: number): string =>
+    whole === 0 ? "0%" : `${((100 * part) / whole).toFixed(1)}%`;
   for (const row of periods) {
     const domain = String(row["domain"]);
     const current = num(row["current_messages"]);
@@ -381,12 +448,24 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
     const previousFail = num(row["previous_fail"]);
     const comparison = `last ${days} days: ${current}, previous ${days} days: ${previous}`;
 
-    if (previous > 0 && (current >= Math.max(3 * previous, previous + 10) || (previous >= 10 && current <= previous / 3))) {
-      results.push({ signal: "volume change", subject: domain, detail: `messages ${comparison}` });
+    if (
+      previous > 0 &&
+      (current >= Math.max(3 * previous, previous + 10) ||
+        (previous >= 10 && current <= previous / 3))
+    ) {
+      results.push({
+        signal: "volume change",
+        subject: domain,
+        detail: `messages ${comparison}`,
+      });
     }
     const currentRate = current === 0 ? 0 : currentFail / current;
     const previousRate = previous === 0 ? 0 : previousFail / previous;
-    if (currentFail > 0 && currentFail > previousFail && currentRate > previousRate) {
+    if (
+      currentFail > 0 &&
+      currentFail > previousFail &&
+      currentRate > previousRate
+    ) {
       results.push({
         signal: "failures increasing",
         subject: domain,
@@ -395,15 +474,19 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
     }
   }
 
-  const unknown = db.get("SELECT count(*) AS n, coalesce(sum(message_count), 0) AS messages FROM v_unknown_senders WHERE last_seen_ts >= :since", {
-    since,
-  });
+  const unknown = db.get(
+    "SELECT count(*) AS n, coalesce(sum(message_count), 0) AS messages FROM v_unknown_senders WHERE last_seen_ts >= :since",
+    {
+      since,
+    },
+  );
   const registered = num(db.get("SELECT count(*) AS n FROM senders")?.["n"]);
   if (registered > 0 && num(unknown?.["n"]) > 0) {
     results.push({
       signal: "unknown senders",
       subject: `${num(unknown?.["n"])} sender(s)`,
-      detail: "observations not matched by a known or ignored sender; run: dmarc unknown",
+      detail:
+        "observations not matched by a known or ignored sender; run: dmarc unknown",
     });
   }
 

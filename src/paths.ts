@@ -26,6 +26,8 @@ export function resolvePaths(dataDir?: string): DataPaths {
 
 /** Makes a value safe as a single path component. */
 export function safeComponent(value: string): string {
-  const cleaned = value.replace(/[^A-Za-z0-9._@+-]+/g, "_").replace(/^\.+/, "_");
+  const cleaned = value
+    .replace(/[^A-Za-z0-9._@+-]+/g, "_")
+    .replace(/^\.+/, "_");
   return (cleaned || "_").slice(0, 120);
 }

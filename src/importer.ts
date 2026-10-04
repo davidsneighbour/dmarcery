@@ -1,9 +1,22 @@
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, relative } from "node:path";
 import type { Database } from "./db.ts";
+import {
+  isReportFileName,
+  type ReportSource,
+  readReportSources,
+} from "./extract.ts";
 import { cidrRange, ipKey, networkOf } from "./ip.ts";
-import { isReportFileName, type ReportSource, readReportSources } from "./extract.ts";
 import { type DmarcReport, parseReport } from "./parse.ts";
 import { safeComponent } from "./paths.ts";
 
@@ -78,7 +91,12 @@ export function statsOf(report: DmarcReport): ImportStats {
 }
 
 /** Phase 3: copy the original bytes into the archive, read-only. Returns the path relative to the data directory. */
-function preserve(data: Buffer, digest: string, report: DmarcReport, options: ImportOptions): string {
+function preserve(
+  data: Buffer,
+  digest: string,
+  report: DmarcReport,
+  options: ImportOptions,
+): string {
   const begin = new Date(report.periodBegin * 1000);
   const directory = join(
     options.archiveDir,
@@ -103,7 +121,13 @@ function preserve(data: Buffer, digest: string, report: DmarcReport, options: Im
 }
 
 /** Phase 4: insert the report and all records in one transaction. Returns the reports.id. */
-function insert(db: Database, report: DmarcReport, sourceFile: string, archivePath: string, digest: string): number {
+function insert(
+  db: Database,
+  report: DmarcReport,
+  sourceFile: string,
+  archivePath: string,
+  digest: string,
+): number {
   return db.transaction(() => {
     const reportPk = db.run(
       `INSERT INTO reports (
@@ -123,7 +147,8 @@ function insert(db: Database, report: DmarcReport, sourceFile: string, archivePa
         report_email: report.reportEmail,
         extra_contact_info: report.extraContactInfo,
         report_version: report.version,
-        report_errors: report.errors.length > 0 ? JSON.stringify(report.errors) : null,
+        report_errors:
+          report.errors.length > 0 ? JSON.stringify(report.errors) : null,
         domain: report.domain,
         period_begin: report.periodBegin,
         period_end: report.periodEnd,
@@ -164,11 +189,14 @@ function insert(db: Database, report: DmarcReport, sourceFile: string, archivePa
         },
       );
       for (const reason of record.reasons) {
-        db.run("INSERT INTO policy_reasons (record_id, type, comment) VALUES (:record_id, :type, :comment)", {
-          record_id: recordPk,
-          type: reason.type,
-          comment: reason.comment,
-        });
+        db.run(
+          "INSERT INTO policy_reasons (record_id, type, comment) VALUES (:record_id, :type, :comment)",
+          {
+            record_id: recordPk,
+            type: reason.type,
+            comment: reason.comment,
+          },
+        );
       }
       for (const dkim of record.dkim) {
         db.run(
@@ -204,17 +232,24 @@ function insert(db: Database, report: DmarcReport, sourceFile: string, archivePa
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? (sorted[middle] ?? 0) : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+  return sorted.length % 2 === 1
+    ? (sorted[middle] ?? 0)
+    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
 }
 
 /**
  * Phase 5: compare the newly imported report with all other reports.
  * Findings are observations only; nothing is written.
  */
-export function analyse(db: Database, reportPk: number, report: DmarcReport): Finding[] {
+export function analyse(
+  db: Database,
+  reportPk: number,
+  report: DmarcReport,
+): Finding[] {
   const findings: Finding[] = [];
   const pk = { pk: reportPk };
-  const values = (sql: string): string[] => db.all(sql, pk).map((row) => String(row["value"]));
+  const values = (sql: string): string[] =>
+    db.all(sql, pk).map((row) => String(row["value"]));
 
   for (const ip of values(`
     SELECT DISTINCT r.source_ip AS value FROM records r
@@ -223,7 +258,11 @@ export function analyse(db: Database, reportPk: number, report: DmarcReport): Fi
     findings.push({ kind: "new_source_ip", value: ip });
   }
 
-  const networks = new Set(report.records.map((record) => networkOf(record.sourceIp)).filter((n) => n !== null));
+  const networks = new Set(
+    report.records
+      .map((record) => networkOf(record.sourceIp))
+      .filter((n) => n !== null),
+  );
   for (const network of networks) {
     const range = cidrRange(network);
     if (range === null) {
@@ -313,7 +352,12 @@ export function analyse(db: Database, reportPk: number, report: DmarcReport): Fi
        LEFT JOIN records r ON r.report_id = rep.id
        WHERE rep.id != :pk AND rep.reporter = :reporter AND rep.domain = :domain AND rep.period_begin < :begin
        GROUP BY rep.id ORDER BY rep.period_begin DESC LIMIT 30`,
-      { pk: reportPk, reporter: report.reporter, domain: report.domain, begin: report.periodBegin },
+      {
+        pk: reportPk,
+        reporter: report.reporter,
+        domain: report.domain,
+        begin: report.periodBegin,
+      },
     )
     .map((row) => Number(row["messages"]));
   if (previous.length >= 3) {
@@ -333,8 +377,12 @@ export function analyse(db: Database, reportPk: number, report: DmarcReport): Fi
   return findings;
 }
 
-/** Imports one XML report. Follows the import protocol in PLAN.md section 9. */
-export function importReport(db: Database, source: ReportSource, options: ImportOptions): ImportResult {
+/** Imports one XML report. Follows the import protocol in README.md. */
+export function importReport(
+  db: Database,
+  source: ReportSource,
+  options: ImportOptions,
+): ImportResult {
   const file = source.name;
   const data = source.data;
 
@@ -351,7 +399,14 @@ export function importReport(db: Database, source: ReportSource, options: Import
   );
   if (existing !== undefined) {
     if (existing["source_sha256"] === digest) {
-      return { file, status: "duplicate", report, archivePath: String(existing["archive_path"]), stats, findings: [] };
+      return {
+        file,
+        status: "duplicate",
+        report,
+        archivePath: String(existing["archive_path"]),
+        stats,
+        findings: [],
+      };
     }
     return {
       file,
@@ -364,27 +419,37 @@ export function importReport(db: Database, source: ReportSource, options: Import
   }
 
   // Phase 3: preserve, before the database changes.
-  const archivePath = options.archivedAs ?? preserve(data, digest, report, options);
+  const archivePath =
+    options.archivedAs ?? preserve(data, digest, report, options);
 
   // Phase 4: parse into the database.
   const reportPk = insert(db, report, source.sourceFile, archivePath, digest);
 
   // Phase 5: analyse.
-  const findings = options.analyse === false ? [] : analyse(db, reportPk, report);
+  const findings =
+    options.analyse === false ? [] : analyse(db, reportPk, report);
 
   return { file, status: "imported", report, archivePath, stats, findings };
 }
 
 /** Imports every report in a .xml, .xml.gz, or .zip file. Stops at the first invalid report. */
-export function importFile(db: Database, path: string, options: ImportOptions): ImportResult[] {
-  return readReportSources(path).map((source) => importReport(db, source, options));
+export function importFile(
+  db: Database,
+  path: string,
+  options: ImportOptions,
+): ImportResult[] {
+  return readReportSources(path).map((source) =>
+    importReport(db, source, options),
+  );
 }
 
 /** Expands files and directories into a sorted list of report files. */
 export function collectFiles(paths: string[], recursive: boolean): string[] {
   const files: string[] = [];
   const walk = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort(
+      (a, b) => a.name.localeCompare(b.name),
+    )) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) {
         if (recursive) {

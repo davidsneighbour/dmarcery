@@ -287,7 +287,9 @@ const MIGRATIONS: Migration[] = [
   },
 ];
 
-export const SCHEMA_VERSION = Math.max(...MIGRATIONS.map((migration) => migration.version));
+export const SCHEMA_VERSION = Math.max(
+  ...MIGRATIONS.map((migration) => migration.version),
+);
 
 export class Database {
   readonly db: DatabaseSync;
@@ -312,7 +314,9 @@ export class Database {
       )
     `);
     const applied = new Set(
-      this.all("SELECT version FROM schema_migrations").map((row) => Number(row["version"])),
+      this.all("SELECT version FROM schema_migrations").map((row) =>
+        Number(row["version"]),
+      ),
     );
     for (const migration of MIGRATIONS) {
       if (applied.has(migration.version)) {
@@ -320,11 +324,14 @@ export class Database {
       }
       this.transaction(() => {
         this.db.exec(migration.sql);
-        this.run("INSERT INTO schema_migrations (version, name, applied_at) VALUES (:version, :name, :applied_at)", {
-          version: migration.version,
-          name: migration.name,
-          applied_at: new Date().toISOString(),
-        });
+        this.run(
+          "INSERT INTO schema_migrations (version, name, applied_at) VALUES (:version, :name, :applied_at)",
+          {
+            version: migration.version,
+            name: migration.name,
+            applied_at: new Date().toISOString(),
+          },
+        );
       });
     }
   }
