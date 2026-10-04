@@ -19,7 +19,7 @@
     "validate:types": "tsc -p tsconfig.check.json",
     "check:biome": "biome check",
     "check:biome:fix": "biome check --write",
-    "release": "release-it",
+    "release": "release-it --ci",
     "release:dry": "release-it --dry-run",
     "lint:markdown": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc \"**/*.{md,mdx}\"",
     "lint:markdown:fix": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc --fix \"**/*.{md,mdx}\"",
