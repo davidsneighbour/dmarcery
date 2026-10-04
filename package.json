@@ -1,6 +1,6 @@
 {
   "name": "dmarcery",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Local, portable history of DMARC aggregate reports with an audit and anomaly-detection CLI.",
   "private": true,
   "type": "module",
