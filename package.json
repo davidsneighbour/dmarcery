@@ -12,9 +12,18 @@
   ],
   "scripts": {
     "build": "tsc",
-    "check": "tsc -p tsconfig.check.json",
+    "check": "npm run check:biome && npm run lint:markdown && npm run validate:types && npm test && npm run audit:secrets",
     "test": "node --test test/*.test.ts",
-    "dmarc": "node src/cli.ts"
+    "dmarc": "node src/cli.ts",
+    "prepare": "simple-git-hooks",
+    "validate:types": "tsc -p tsconfig.check.json",
+    "check:biome": "biome check",
+    "check:biome:fix": "biome check --write",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "lint:markdown": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc \"**/*.{md,mdx}\"",
+    "lint:markdown:fix": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc --fix \"**/*.{md,mdx}\"",
+    "audit:secrets": "dnb-secretlint \"**/*\""
   },
   "engines": {
     "node": ">=24"
@@ -25,7 +34,33 @@
     "fast-xml-parser": "5.11.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@dnbhq/biome-config": "0.3.1",
+    "@dnbhq/lintstaged-config": "0.2.1",
+    "@dnbhq/markdownlint-config": "2.0.0",
+    "@dnbhq/release-config": "2.0.0",
+    "@dnbhq/secretlint-config": "0.1.1",
+    "@dnbhq/tsconfig": "0.1.6",
+    "@release-it/conventional-changelog": "12.0.2",
     "@types/node": "26.6.4",
+    "lint-staged": "17.6.0",
+    "release-it": "21.1.0",
+    "simple-git-hooks": "2.14.0",
     "typescript": "7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidsneighbour/dmarcery.git"
+  },
+  "overrides": {
+    "release-it": {
+      "undici": "7.30.0"
+    }
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "allowScripts": {
+    "simple-git-hooks": false
   }
 }

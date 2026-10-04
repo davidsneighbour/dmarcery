@@ -1,22 +1,12 @@
 {
+  "extends": "@dnbhq/tsconfig/cli",
   "compilerOptions": {
-    "target": "ES2023",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "verbatimModuleSyntax": true,
-    "erasableSyntaxOnly": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "types": ["node"],
+    // The shared preset is type-check only (noEmit). This project builds the CLI into dist/.
+    "noEmit": false,
     "outDir": "dist",
     "rootDir": "src",
-    "declaration": false,
-    "sourceMap": false
+    // Source imports use .ts extensions so Node runs src/ directly; emit rewrites them to .js.
+    "rewriteRelativeImportExtensions": true
   },
   "include": ["src/**/*.ts"]
 }

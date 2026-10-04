@@ -2,4 +2,3 @@ node_modules/
 dist/
 *.sqlite
 *.sqlite-journal
-PLAN.md
