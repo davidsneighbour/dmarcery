@@ -23,7 +23,10 @@
     "release:dry": "release-it --dry-run",
     "lint:markdown": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc \"**/*.{md,mdx}\"",
     "lint:markdown:fix": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc --fix \"**/*.{md,mdx}\"",
-    "audit:secrets": "dnb-secretlint \"**/*\""
+    "audit:secrets": "dnb-secretlint \"**/*\"",
+    "release:patch": "release-it patch",
+    "release:minor": "release-it minor",
+    "release:major": "release-it major"
   },
   "engines": {
     "node": ">=24"
