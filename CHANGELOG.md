@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/davidsneighbour/dmarcery/compare/v1.0.0...v1.0.1) (2026-10-25)
+
+### Build
+
+* **deps:** update dependencies ([7e6d037](https://github.com/davidsneighbour/dmarcery/commit/7e6d0375f2f001b85113f038581af5efbf022adb))
+* **fix:** run release without questionaire ([8348dde](https://github.com/davidsneighbour/dmarcery/commit/8348ddeeb2713b5fff135b92174bd146c989a781))
+
 ## 1.0.0 (2026-10-04)
 
 ### Feat
