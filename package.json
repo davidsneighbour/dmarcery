@@ -34,11 +34,11 @@
   "author": "Patrick Kollitsch",
   "license": "MIT",
   "dependencies": {
-    "fast-xml-parser": "5.11.2",
+    "fast-xml-parser": "5.12.0",
     "smol-toml": "1.9.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
+    "@biomejs/biome": "2.6.7",
     "@dnbhq/biome-config": "0.3.1",
     "@dnbhq/lintstaged-config": "0.2.1",
     "@dnbhq/markdownlint-config": "2.0.0",
@@ -46,7 +46,7 @@
     "@dnbhq/secretlint-config": "0.1.1",
     "@dnbhq/tsconfig": "0.1.6",
     "@release-it/conventional-changelog": "12.0.2",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "lint-staged": "17.6.0",
     "release-it": "21.1.0",
     "simple-git-hooks": "2.14.0",
