@@ -47,6 +47,7 @@ import {
   type Counted,
   type Filter,
   inspectSender,
+  listAlignment,
   listDaily,
   listDomains,
   listFailures,
@@ -87,6 +88,8 @@ Inspect:
       --days N  --domain D  --reporter R  --limit N
   dmarc failures [--days N] [--domain D]
                                       Records where DMARC failed
+  dmarc alignment [--all]             Compare stored alignment; list mismatches
+      --days N  --domain D  --reporter R  --json
   dmarc unknown [--days N] [--domain D]
                                       Observations not matched by a known or ignored sender
   dmarc sender <ip|cidr|domain>       Everything observed for an IP address, range, or domain
@@ -121,6 +124,7 @@ const COMMANDS = new Set([
   "summary",
   "reports",
   "failures",
+  "alignment",
   "unknown",
   "sender",
   "daily",
@@ -154,6 +158,7 @@ const { values: options, positionals } = parseArgs({
     "gmail-sender": { type: "string", multiple: true },
     "dry-run": { type: "boolean", default: false },
     review: { type: "boolean", default: false },
+    all: { type: "boolean", default: false },
     json: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
     version: { type: "boolean", default: false },
@@ -794,6 +799,10 @@ async function main(): Promise<number> {
     command = "import";
   }
 
+  if (options.all && command !== "alignment")
+    throw new UsageError("--all applies only to alignment");
+  if (command === "alignment" && args.length)
+    throw new UsageError("alignment takes no positional arguments");
   const paths = resolvePaths(options["data-dir"]);
 
   if (
@@ -997,6 +1006,29 @@ async function main(): Promise<number> {
         return 0;
       case "failures":
         commandFailures(db);
+        return 0;
+      case "alignment":
+        printRows(
+          [
+            { header: "DATE", key: "report_date" },
+            { header: "DOMAIN", key: "domain" },
+            { header: "REPORTER", key: "reporter" },
+            { header: "IP", key: "source_ip" },
+            { header: "COUNT", key: "message_count", align: "right" },
+            { header: "REPORTED DKIM", key: "dkim_evaluation" },
+            { header: "CHECKED DKIM", key: "dkim_recalculated" },
+            { header: "REPORTED SPF", key: "spf_evaluation" },
+            { header: "CHECKED SPF", key: "spf_recalculated" },
+            { header: "REPORTED DMARC", key: "dmarc_comparison_reported" },
+            { header: "CHECKED DMARC", key: "dmarc_recalculated" },
+            { header: "DKIM NOTE", key: "dkim_note" },
+            { header: "SPF NOTE", key: "spf_note" },
+          ],
+          listAlignment(db, filterFromOptions(), options.all),
+          options.all
+            ? "No records to check."
+            : "No definite alignment mismatches. Use --all to include matches and unknown results.",
+        );
         return 0;
       case "unknown":
         commandUnknown(db);

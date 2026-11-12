@@ -28,6 +28,8 @@ dmarc import -v report.xml       # full summary per report
 
 dmarc summary                    # totals and the last 30 days
 dmarc reports --days 30 --domain example.com --reporter receiver.example
+dmarc alignment                  # optional offline alignment mismatch check
+dmarc alignment --all --json     # include matches and unknown results
 dmarc failures --days 30
 dmarc unknown                    # observations not covered by the sender registry
 dmarc sender 192.0.2.52          # everything about an IP address
@@ -107,6 +109,10 @@ After each import, the importer compares the report with all earlier reports and
 * volume changes: at least 3 times the median of the previous 30 reports (and at least 10 more messages) from the same reporter for the same domain, or at most a third of that median when the median is 10 or more
 
 A report without findings prints two lines.
+
+## Alignment comparison
+
+Run `dmarc alignment` to compare reported DKIM and SPF evaluations with an optional offline recalculation. `--all` includes matching and unknown results; `--days`, `--domain`, `--reporter`, and `--json` support inspection. Reported observations and existing summaries stay unchanged. See [comparison rules, Public Suffix List updates, and limitations](documentation/alignment.md).
 
 ## Compressed reports
 

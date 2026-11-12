@@ -1,3 +1,9 @@
+import {
+  type AlignmentResult,
+  type AuthObservation,
+  checkMechanism,
+  combinedAlignment,
+} from "./alignment.ts";
 import type { Database, Params, Row } from "./db.ts";
 import { formatNumber } from "./format.ts";
 import { cidrRange, ipKey, networkOf } from "./ip.ts";
@@ -491,4 +497,90 @@ export function anomalies(db: Database, days = 7, now = Date.now()): Anomaly[] {
   }
 
   return results;
+}
+
+export interface AlignmentComparison extends Record<string, unknown> {
+  dkim_recalculated: AlignmentResult;
+  spf_recalculated: AlignmentResult;
+  dmarc_recalculated: AlignmentResult;
+  mismatch: boolean;
+  differences: ("dkim" | "spf")[];
+}
+
+/** Query-time verification only: observed rows and existing views are never changed. */
+export function listAlignment(
+  db: Database,
+  filter: Filter,
+  includeAll = false,
+): AlignmentComparison[] {
+  const { sql, params } = where(filter, {
+    end: "v.period_end",
+    domain: "v.domain",
+    reporter: "v.reporter",
+  });
+  return db
+    .all(
+      `SELECT v.record_id, v.report_pk, v.report_date, v.reporter, v.domain,
+      v.source_ip, v.message_count, v.header_from, v.dkim_evaluation, v.spf_evaluation, v.dmarc_result,
+      rep.report_id, rep.policy_adkim, rep.policy_aspf,
+      (SELECT json_group_array(json_object('domain', d.domain, 'result', d.result)) FROM dkim_results d WHERE d.record_id=v.record_id) AS dkim_results,
+      (SELECT json_group_array(json_object('domain', s.domain, 'result', s.result, 'scope', s.scope)) FROM spf_results s WHERE s.record_id=v.record_id) AS spf_results
+    FROM v_records v JOIN reports rep ON rep.id=v.report_pk ${sql}
+    ORDER BY v.period_begin DESC, v.record_id`,
+      params,
+    )
+    .map((row) => {
+      const dkim = checkMechanism(
+        str(row["header_from"]),
+        str(row["policy_adkim"]),
+        JSON.parse(String(row["dkim_results"])) as AuthObservation[],
+        "dkim",
+      );
+      const spf = checkMechanism(
+        str(row["header_from"]),
+        str(row["policy_aspf"]),
+        JSON.parse(String(row["spf_results"])) as AuthObservation[],
+        "spf",
+      );
+      const recalculated = combinedAlignment(dkim.result, spf.result);
+      const differences = (
+        [
+          ["dkim", row["dkim_evaluation"], dkim.result],
+          ["spf", row["spf_evaluation"], spf.result],
+        ] as const
+      )
+        .filter(
+          ([, reported, checked]) =>
+            (reported === "pass" || reported === "fail") &&
+            checked !== "unknown" &&
+            reported !== checked,
+        )
+        .map(([mechanism]) => mechanism);
+      // v_records treats absent receiver evaluations as fail; do not infer that missing evidence is a reported fail.
+      const reportedDmarc =
+        row["dkim_evaluation"] === "pass" || row["spf_evaluation"] === "pass"
+          ? "pass"
+          : row["dkim_evaluation"] === "fail" &&
+              row["spf_evaluation"] === "fail"
+            ? "fail"
+            : "unknown";
+      const { dkim_results: _dkim, spf_results: _spf, ...observed } = row;
+      return {
+        ...observed,
+        method: "rfc7489-psl",
+        dkim_recalculated: dkim.result,
+        spf_recalculated: spf.result,
+        dmarc_recalculated: recalculated,
+        dmarc_comparison_reported: reportedDmarc,
+        mismatch:
+          differences.length > 0 ||
+          (reportedDmarc !== "unknown" &&
+            recalculated !== "unknown" &&
+            reportedDmarc !== recalculated),
+        differences,
+        dkim_note: dkim.note,
+        spf_note: spf.note,
+      };
+    })
+    .filter((row) => includeAll || row.mismatch);
 }
