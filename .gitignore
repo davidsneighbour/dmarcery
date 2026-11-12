@@ -3,3 +3,5 @@ dist/
 *.sqlite
 *.sqlite-journal
 scratch/
+
+gmail.json

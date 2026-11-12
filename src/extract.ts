@@ -83,6 +83,7 @@ export function unzip(data: Buffer, name: string): ZipEntry[] {
     fail(`more than ${MAX_ZIP_ENTRIES} entries`);
 
   const entries: ZipEntry[] = [];
+  let totalSize = 0;
   for (let index = 0; index < entryCount; index += 1) {
     if (offset + 46 > data.length || data.readUInt32LE(offset) !== 0x02014b50)
       fail("corrupt central directory");
@@ -91,6 +92,9 @@ export function unzip(data: Buffer, name: string): ZipEntry[] {
     const crc = data.readUInt32LE(offset + 16);
     const compressedSize = data.readUInt32LE(offset + 20);
     const size = data.readUInt32LE(offset + 24);
+    totalSize += size;
+    if (totalSize > MAX_REPORT_BYTES)
+      fail("combined zip contents exceed size limit");
     const nameLength = data.readUInt16LE(offset + 28);
     const extraLength = data.readUInt16LE(offset + 30);
     const commentLength = data.readUInt16LE(offset + 32);
@@ -145,7 +149,16 @@ export function unzip(data: Buffer, name: string): ZipEntry[] {
 
 /** Reads a report file and returns the XML report(s) it contains. */
 export function readReportSources(path: string): ReportSource[] {
-  const data = readFileSync(path);
+  return reportSourcesFromBuffer(readFileSync(path), path);
+}
+
+/** Extracts an attachment without writing untrusted names to disk. */
+export function reportSourcesFromBuffer(
+  data: Buffer,
+  path: string,
+): ReportSource[] {
+  if (data.length > MAX_REPORT_BYTES)
+    throw new ReportError("Attachment exceeds size limit");
   const file = basename(path);
   switch (detectFormat(data)) {
     case "xml":

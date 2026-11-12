@@ -43,6 +43,10 @@ All query commands accept `--json`. `--data-dir DIR` (or `DMARC_HOME`) selects a
 
 Exit codes: `0` success (also when a report was already imported), `1` some files were not imported or an inspected sender has no observations, `2` usage error.
 
+## Gmail import
+
+Configure mailbox addresses and sender allowlists in `~/.config/dmarcery.toml`, then run `dmarc gmail-auth` to create a separate read-only token for each mailbox. Run `dmarc import` without file arguments to import all configured mailboxes manually. Add `--account EMAIL` to select one mailbox. Use `--dry-run` to validate first and `--review` to repeat saved successful-message links. See [Gmail setup, security, and usage](documentation/gmail.md). Gmail is never modified.
+
 ## Sender registry
 
 The registry is configured data. The importer never writes to it, and it never changes observations.
@@ -156,3 +160,5 @@ npm run release:dry      # preview the next release
 ```
 
 The pre-commit hook (`simple-git-hooks` and `lint-staged`) runs Biome, markdownlint, and secretlint on staged files.
+
+Markdown formatting is managed by markdownlint. Biome Markdown formatting is disabled because its default list and table styles conflict with the shared markdownlint rules.

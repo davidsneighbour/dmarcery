@@ -1,6 +1,22 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
+import {
+  ConfigError,
+  DEFAULT_CLIENT,
+  DEFAULT_CONFIG,
+  loadMailAccounts,
+  type MailAccount,
+} from "./config.ts";
 import { Database } from "./db.ts";
 import { type ReportSource, readReportSources } from "./extract.ts";
 import {
@@ -10,6 +26,13 @@ import {
   pairs,
   table,
 } from "./format.ts";
+import { loadGmailConfig } from "./gmail.ts";
+import {
+  authoriseGmail,
+  loadGoogleClient,
+  saveGmailConfig,
+} from "./gmail-auth.ts";
+import { importMailAccounts } from "./gmail-workflow.ts";
 import {
   collectFiles,
   type Finding,
@@ -47,6 +70,12 @@ const HELP = `Usage: dmarc <command> [options]
 
 Import:
   dmarc <file|dir>...                 Import DMARC aggregate reports (same as import)
+  dmarc gmail-auth [--account EMAIL]  Browser sign-in for configured mailboxes
+      --gmail-client FILE            Desktop app credentials (default ~/.msgvault/client_secret.json)
+      --config FILE                  Settings (default ~/.config/dmarcery.toml)
+      --account EMAIL                Process only this configured mailbox
+      --gmail-config FILE            Legacy single-account JSON configuration
+  dmarc import [--dry-run | --review]  Read all configured Gmail mailboxes
   dmarc import <file|dir>...          Import .xml, .xml.gz, or .zip reports; directories are
                                       read for *.xml, *.gz, and *.zip
       -r, --recursive                 Also read subdirectories
@@ -88,6 +117,7 @@ Global options:
 
 const COMMANDS = new Set([
   "import",
+  "gmail-auth",
   "summary",
   "reports",
   "failures",
@@ -117,6 +147,13 @@ const { values: options, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     "data-dir": { type: "string" },
+    "gmail-config": { type: "string" },
+    config: { type: "string" },
+    "gmail-client": { type: "string" },
+    account: { type: "string" },
+    "gmail-sender": { type: "string", multiple: true },
+    "dry-run": { type: "boolean", default: false },
+    review: { type: "boolean", default: false },
     json: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
     version: { type: "boolean", default: false },
@@ -739,7 +776,7 @@ function version(): string {
   return manifest.version ?? "unknown";
 }
 
-function main(): number {
+async function main(): Promise<number> {
   if (options.version) {
     print(version());
     return 0;
@@ -758,6 +795,167 @@ function main(): number {
   }
 
   const paths = resolvePaths(options["data-dir"]);
+
+  if (
+    (options.config ||
+      options["gmail-config"] ||
+      options.account ||
+      options["gmail-client"] ||
+      options["gmail-sender"] ||
+      options["dry-run"] ||
+      options.review) &&
+    command !== "gmail-auth" &&
+    (command !== "import" || args.length)
+  )
+    throw new UsageError(
+      "Mail options require gmail-auth or import without file arguments",
+    );
+  if (options.config && (options["gmail-config"] || options["gmail-sender"]))
+    throw new UsageError(
+      "Choose TOML --config or legacy JSON --gmail-config options",
+    );
+  if (
+    command !== "gmail-auth" &&
+    (options["gmail-client"] || options["gmail-sender"])
+  )
+    throw new UsageError("Sign-in options require gmail-auth");
+  if (options["dry-run"] && options.review)
+    throw new UsageError("Choose --dry-run or --review");
+
+  const mailAccounts = (): MailAccount[] => {
+    if (options["gmail-config"] || options["gmail-sender"]) {
+      const target =
+        options["gmail-config"] ?? join(paths.dataDir, "gmail.json");
+      if (command === "gmail-auth") {
+        if (
+          !options.account ||
+          !options["gmail-sender"]?.length ||
+          ![options.account, ...options["gmail-sender"]].every((address) =>
+            /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$/.test(address),
+          )
+        )
+          throw new UsageError(
+            "Legacy sign-in requires --account EMAIL and --gmail-sender EMAIL",
+          );
+        return [
+          {
+            address: options.account.toLowerCase(),
+            senders: options["gmail-sender"],
+            clientFile: options["gmail-client"] ?? DEFAULT_CLIENT,
+            credentialsFile: target,
+          },
+        ];
+      }
+      const legacy = loadGmailConfig(target);
+      if (options.account && options.account.toLowerCase() !== legacy.account)
+        throw new UsageError("Selected account is not in legacy configuration");
+      return [
+        {
+          address: legacy.account,
+          senders: legacy.senders,
+          clientFile: DEFAULT_CLIENT,
+          credentialsFile: target,
+        },
+      ];
+    }
+    return loadMailAccounts(
+      options.config ?? DEFAULT_CONFIG,
+      paths.dataDir,
+      options.account,
+    );
+  };
+
+  if (command === "gmail-auth") {
+    if (args.length || options["dry-run"] || options.review)
+      throw new UsageError(
+        "gmail-auth does not accept files, --dry-run, or --review",
+      );
+    let failed = false;
+    for (const account of mailAccounts()) {
+      try {
+        const client = loadGoogleClient(
+          options["gmail-client"] ?? account.clientFile,
+        );
+        const refreshToken = await authoriseGmail(
+          client,
+          account.address,
+          async (url) => {
+            print(
+              `Sign in to Gmail for ${account.address} in your browser:\n${url}`,
+            );
+            await new Promise<void>((resolve) => {
+              const child = spawn("xdg-open", [url], { stdio: "ignore" });
+              child.once("error", () => resolve());
+              child.once("spawn", () => {
+                child.unref();
+                resolve();
+              });
+            });
+          },
+        );
+        saveGmailConfig(
+          account.credentialsFile,
+          client,
+          account.address,
+          account.senders,
+          refreshToken,
+        );
+        print(
+          `Saved separate read-only DMARC credentials for ${account.address}.`,
+        );
+      } catch (error) {
+        failed = true;
+        process.stderr.write(
+          `dmarc: ${account.address}: ${error instanceof Error ? error.message : "Sign-in failed"}\n`,
+        );
+      }
+    }
+    return failed ? 1 : 0;
+  }
+
+  if (command === "import" && args.length === 0) {
+    const accounts = mailAccounts();
+    const temporary = options["dry-run"]
+      ? mkdtempSync(join(tmpdir(), "dmarcery-gmail-"))
+      : undefined;
+    const databasePath = temporary
+      ? join(temporary, "dry.sqlite")
+      : paths.database;
+    if (temporary && existsSync(paths.database))
+      copyFileSync(paths.database, databasePath);
+    const mailDb = new Database(databasePath);
+    try {
+      const outcomes = await importMailAccounts(mailDb, paths, accounts, {
+        dryRun: options["dry-run"],
+        review: options.review,
+      });
+      if (options.json) printJson(outcomes);
+      else {
+        for (const outcome of outcomes) {
+          print(`Account: ${outcome.account}`);
+          if (outcome.error) print(`Failed: ${outcome.error}`);
+          for (const result of outcome.messages)
+            print(
+              `${result.id}: ${result.status} (${result.attachments} attachments)${result.error ? `: ${result.error}` : ""}${result.link ? `\nReview: ${result.link}` : ""}`,
+            );
+        }
+        const messages = outcomes.flatMap((outcome) => outcome.messages);
+        print(
+          `${messages.filter((r) => r.status !== "failed").length} successful messages; ${messages.filter((r) => r.status === "failed").length} failed messages; ${outcomes.filter((o) => o.error).length} account errors. Gmail was read only.`,
+        );
+      }
+      return outcomes.some(
+        (outcome) =>
+          outcome.error ||
+          outcome.messages.some((message) => message.status === "failed"),
+      )
+        ? 1
+        : 0;
+    } finally {
+      mailDb.close();
+      if (temporary) rmSync(temporary, { recursive: true, force: true });
+    }
+  }
 
   if (command === "rebuild") {
     const result = rebuild(paths);
@@ -823,10 +1021,11 @@ function main(): number {
 }
 
 try {
-  process.exitCode = main();
+  process.exitCode = await main();
 } catch (error) {
   if (
     error instanceof UsageError ||
+    error instanceof ConfigError ||
     error instanceof RegistryError ||
     error instanceof ReportError
   ) {

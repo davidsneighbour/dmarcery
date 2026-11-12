@@ -1,0 +1,14 @@
+# Copy to ~/.config/dmarcery.toml and replace the example mailbox addresses.
+# This file contains settings only. Browser sign-in stores tokens separately.
+[gmail]
+client_file = "~/.msgvault/client_secret.json"
+senders = ["noreply-dmarc-support@google.com"]
+
+[[gmail.accounts]]
+address = "first@example.com"
+
+[[gmail.accounts]]
+address = "second@example.com"
+# Optional overrides replace the shared values for this mailbox.
+# senders = ["noreply-dmarc-support@google.com", "reports@example.net"]
+# client_file = "~/another-google-client.json"
