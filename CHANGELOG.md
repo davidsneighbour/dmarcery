@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0](https://github.com/davidsneighbour/dmarcery/compare/v1.0.1...v1.1.0) (2026-11-12)
+
+### Feat
+
+* import DMARC reports from Gmail read-only ([f205269](https://github.com/davidsneighbour/dmarcery/commit/f205269bce2948db17183340f4a1a9a7e015156d))
+
 ## [1.0.1](https://github.com/davidsneighbour/dmarcery/compare/v1.0.0...v1.0.1) (2026-10-25)
 
 ### Build
