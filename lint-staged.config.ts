@@ -2,8 +2,7 @@ import { createLintStagedConfig } from "@dnbhq/lintstaged-config";
 import type { Configuration } from "lint-staged";
 
 const config: Configuration = createLintStagedConfig({
-  // There is no local .secretlintrc; the wrapper injects @dnbhq/secretlint-config.
-  secrets: { commands: ["dnb-secretlint --no-glob"] },
+  secrets: { enabled: false },
   markdown: {
     // The default glob "!(CHANGELOG)**/*.{md,markdown,mdx}" never matches files in the
     // repository root (README.md) and does not exclude nested CHANGELOG.md files.

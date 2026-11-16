@@ -165,6 +165,6 @@ npm run build            # compile to dist/
 npm run release:dry      # preview the next release
 ```
 
-The pre-commit hook (`simple-git-hooks` and `lint-staged`) runs Biome, markdownlint, and secretlint on staged files.
+The pre-commit hook (`simple-git-hooks` and `lint-staged`) runs Biome and markdownlint on staged files.
 
 Markdown formatting is managed by markdownlint. Biome Markdown formatting is disabled because its default list and table styles conflict with the shared markdownlint rules.

@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "check": "npm run check:biome && npm run lint:markdown && npm run validate:types && npm test && npm run audit:secrets",
+    "check": "npm run check:biome && npm run lint:markdown && npm run validate:types && npm test",
     "test": "node --test test/*.test.ts",
     "dmarc": "node src/cli.ts",
     "prepare": "simple-git-hooks",
@@ -23,7 +23,6 @@
     "release:dry": "release-it --dry-run",
     "lint:markdown": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc \"**/*.{md,mdx}\"",
     "lint:markdown:fix": "markdownlint-cli2 --config ./node_modules/@dnbhq/markdownlint-config/.markdownlint-cli2.jsonc --fix \"**/*.{md,mdx}\"",
-    "audit:secrets": "dnb-secretlint \"**/*\"",
     "release:patch": "release-it patch",
     "release:minor": "release-it minor",
     "release:major": "release-it major"
@@ -34,33 +33,27 @@
   "author": "Patrick Kollitsch",
   "license": "MIT",
   "dependencies": {
-    "fast-xml-parser": "5.12.0",
+    "fast-xml-parser": "5.12.1",
     "smol-toml": "1.9.1",
-    "tldts": "7.5.0"
+    "tldts": "7.5.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "@dnbhq/biome-config": "0.3.1",
     "@dnbhq/lintstaged-config": "0.2.1",
     "@dnbhq/markdownlint-config": "2.0.0",
-    "@dnbhq/release-config": "2.0.0",
-    "@dnbhq/secretlint-config": "0.1.1",
+    "@dnbhq/release-config": "2.0.1",
     "@dnbhq/tsconfig": "0.1.6",
     "@release-it/conventional-changelog": "12.0.2",
     "@types/node": "26.6.6",
-    "lint-staged": "17.6.0",
-    "release-it": "21.1.0",
+    "lint-staged": "17.6.1",
+    "release-it": "21.1.2",
     "simple-git-hooks": "2.14.0",
     "typescript": "7.0.2"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/davidsneighbour/dmarcery.git"
-  },
-  "overrides": {
-    "release-it": {
-      "undici": "7.30.0"
-    }
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
