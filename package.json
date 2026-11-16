@@ -41,7 +41,6 @@
     "@biomejs/biome": "2.6.8",
     "@dnbhq/biome-config": "0.3.1",
     "@dnbhq/lintstaged-config": "0.2.1",
-    "@dnbhq/markdownlint-config": "2.0.0",
     "@dnbhq/release-config": "2.0.1",
     "@dnbhq/tsconfig": "0.1.6",
     "@release-it/conventional-changelog": "12.0.2",
