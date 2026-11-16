@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.0](https://github.com/davidsneighbour/dmarcery/compare/v1.1.0...v1.2.0) (2026-11-16)
+
+### Feat
+
+* add offline DMARC alignment checks ([b63aad3](https://github.com/davidsneighbour/dmarcery/commit/b63aad3dba82614b222dea9565693b38acb09ce1)), closes [#3](https://github.com/davidsneighbour/dmarcery/issues/3)
+
+### Build
+
+* **deps:** update dependencies ([9b19871](https://github.com/davidsneighbour/dmarcery/commit/9b19871572da25ac0ac757b49559274dc4112421))
+* **deps:** update dependencies ([a1f1025](https://github.com/davidsneighbour/dmarcery/commit/a1f1025472855cb74ca2cb5084bd876a33fd84ec))
+
 ## [1.1.0](https://github.com/davidsneighbour/dmarcery/compare/v1.0.1...v1.1.0) (2026-11-12)
 
 ### Feat
